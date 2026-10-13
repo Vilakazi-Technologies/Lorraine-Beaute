@@ -3,13 +3,15 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { products } from "@/lib/products";
+import { useCatalog } from "@/lib/catalog-context";
 import { ProductCard } from "./product-card";
 
 export function Bestsellers() {
-  const bestsellers = products.filter(
-    (p) => p.badge === "Bestseller" || p.reviewCount > 1500
-  ).slice(0, 4);
+  const { products } = useCatalog();
+  const bestsellers = products
+    .filter((p) => p.supplier === "k-beauty")
+    .sort((a, b) => b.reviewCount - a.reviewCount)
+    .slice(0, 4);
 
   return (
     <section className="py-20 sm:py-28 bg-background">
@@ -22,14 +24,14 @@ export function Bestsellers() {
         >
           <div>
             <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-3">
-              Bestsellers
+              K-Beauty Bestsellers
             </p>
             <h2 className="font-serif text-4xl sm:text-5xl font-semibold">
-              Customer Favorites
+              Most Loved Skincare
             </h2>
           </div>
           <Link
-            href="/shop"
+            href="/shop?category=skincare"
             className="hidden sm:inline-flex items-center gap-2 text-sm tracking-wide uppercase text-accent font-medium hover:text-accent-dark transition-colors"
           >
             View All <ArrowRight className="w-4 h-4" />

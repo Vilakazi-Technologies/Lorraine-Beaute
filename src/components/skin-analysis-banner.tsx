@@ -27,7 +27,7 @@ export function SkinAnalysisBanner() {
             </h2>
             <p className="text-white/70 leading-relaxed mb-8">
               Scan your face for a complete digital skin assessment. Claude AI analyses your
-              skin type and concerns, then recommends the perfect Lorraine Beauté products
+              skin type and concerns, then recommends the perfect Korean skincare products
               tailored just for you.
             </p>
             <Link

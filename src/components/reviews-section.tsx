@@ -4,6 +4,10 @@ import { motion } from "framer-motion";
 import { Star, CheckCircle } from "lucide-react";
 import { reviews } from "@/lib/products";
 
+/** Home reviews — K-beauty only (exclude legacy demo fragrance / makeup SKUs). */
+const EXCLUDED_REVIEW_PRODUCT_IDS = new Set(["11", "12", "13", "14", "15", "16", "17", "18"]);
+const storefrontReviews = reviews.filter((r) => !EXCLUDED_REVIEW_PRODUCT_IDS.has(r.productId));
+
 export function ReviewsSection() {
   return (
     <section className="py-20 sm:py-28 bg-cream">
@@ -15,15 +19,15 @@ export function ReviewsSection() {
           className="text-center mb-14"
         >
           <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-3">
-            Press & Reviews
+            Customer Reviews
           </p>
           <h2 className="font-serif text-4xl sm:text-5xl font-semibold">
-            Loved by Thousands
+            Real Results from K-Beauty Lovers
           </h2>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {reviews.slice(0, 3).map((review, i) => (
+          {storefrontReviews.slice(0, 6).map((review, i) => (
             <motion.blockquote
               key={review.id}
               initial={{ opacity: 0, y: 20 }}

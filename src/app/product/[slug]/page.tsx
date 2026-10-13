@@ -3,18 +3,21 @@
 import { use, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
 import { motion } from "framer-motion";
-import { Star, Minus, Plus, CheckCircle, ArrowLeft, Truck, RotateCcw, Shield } from "lucide-react";
+import { Star, Minus, Plus, CheckCircle, ArrowLeft, Truck, RotateCcw, Shield, Lock } from "lucide-react";
+import { useCatalog } from "@/lib/catalog-context";
 import {
-  getProductBySlug,
   getReviewsForProduct,
   getUpsellProducts,
-  products,
-} from "@/lib/products";
+  resolveProductBySlug,
+} from "@/lib/catalog-helpers";
 import { useCart } from "@/lib/cart-context";
 import { formatPrice, FREE_SHIPPING_THRESHOLD, cn } from "@/lib/utils";
 import { ProductCard } from "@/components/product-card";
+import { ProductTrustBar } from "@/components/product-trust-bar";
+import { StickyMobileCheckout } from "@/components/sticky-mobile-checkout";
 
 export default function ProductPage({
   params,
@@ -22,22 +25,38 @@ export default function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
-  const product = getProductBySlug(slug);
+  const router = useRouter();
+  const { products, loading } = useCatalog();
+  const product = resolveProductBySlug(slug, products);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const { addItem } = useCart();
 
-  if (!product) notFound();
+  if (!loading && !product) notFound();
+  if (!product) {
+    return (
+      <main className="py-20 text-center text-muted-foreground">
+        Loading product…
+      </main>
+    );
+  }
 
   const productReviews = getReviewsForProduct(product.id);
-  const upsells = getUpsellProducts(product);
+  const upsells = getUpsellProducts(product, products);
   const savings = product.compareAtPrice
     ? product.compareAtPrice - product.price
     : 0;
 
+  const buyNow = () => {
+    addItem(product, quantity);
+    router.push("/checkout");
+  };
+
   return (
-    <main className="py-8 sm:py-16">
+    <main className="pb-28 lg:pb-16 py-8 sm:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <ProductTrustBar />
+
         <Link
           href="/shop"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors"
@@ -71,6 +90,7 @@ export default function ProductPage({
                 {product.images.map((img, i) => (
                   <button
                     key={i}
+                    type="button"
                     onClick={() => setSelectedImage(i)}
                     className={cn(
                       "relative w-20 h-24 rounded-sm overflow-hidden border-2 transition-colors",
@@ -87,8 +107,19 @@ export default function ProductPage({
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="lg:py-8"
+            className="lg:py-4"
           >
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="inline-flex items-center gap-1 text-xs text-sage font-medium">
+                <Shield className="w-3.5 h-3.5" />
+                Authentic · K-Dropshipping
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Lock className="w-3.5 h-3.5" />
+                Secure checkout
+              </span>
+            </div>
+
             <div className="flex items-center gap-1 mb-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star
@@ -106,14 +137,19 @@ export default function ProductPage({
               </span>
             </div>
 
-            <h1 className="font-serif text-3xl sm:text-4xl font-semibold mb-3">
+            <h1 className="font-serif text-3xl sm:text-4xl font-semibold mb-1">
               {product.name}
             </h1>
+            {product.brand && (
+              <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-3">
+                {product.brand}
+              </p>
+            )}
             <p className="text-muted-foreground leading-relaxed mb-6">
               {product.longDescription ?? product.description}
             </p>
 
-            <div className="flex items-center gap-3 mb-8">
+            <div className="flex items-center gap-3 mb-6">
               <span className="text-2xl font-medium">{formatPrice(product.price)}</span>
               {product.compareAtPrice && (
                 <>
@@ -127,9 +163,10 @@ export default function ProductPage({
               )}
             </div>
 
-            <div className="flex items-center gap-4 mb-8">
-              <div className="flex items-center border border-border rounded-full">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-8">
+              <div className="flex items-center border border-border rounded-full w-fit">
                 <button
+                  type="button"
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="p-3"
                   aria-label="Decrease"
@@ -138,6 +175,7 @@ export default function ProductPage({
                 </button>
                 <span className="px-5 font-medium">{quantity}</span>
                 <button
+                  type="button"
                   onClick={() => setQuantity(quantity + 1)}
                   className="p-3"
                   aria-label="Increase"
@@ -146,10 +184,18 @@ export default function ProductPage({
                 </button>
               </div>
               <button
+                type="button"
                 onClick={() => addItem(product, quantity)}
-                className="flex-1 bg-accent text-white py-4 rounded-full text-sm tracking-[0.15em] uppercase font-medium hover:bg-accent-dark transition-colors"
+                className="flex-1 border border-accent text-accent py-4 rounded-full text-sm tracking-[0.12em] uppercase font-medium hover:bg-accent/5 transition-colors"
               >
-                Add to Bag — {formatPrice(product.price * quantity)}
+                Add to Bag
+              </button>
+              <button
+                type="button"
+                onClick={buyNow}
+                className="flex-1 bg-accent text-white py-4 rounded-full text-sm tracking-[0.12em] uppercase font-medium hover:bg-accent-dark transition-colors"
+              >
+                Buy Now — {formatPrice(product.price * quantity)}
               </button>
             </div>
 
@@ -179,13 +225,14 @@ export default function ProductPage({
                       <div className="relative w-12 h-14 bg-muted rounded-sm overflow-hidden shrink-0">
                         <Image src={up.image} alt={up.name} fill className="object-cover" />
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{up.name}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium line-clamp-2">{up.name}</p>
                         <p className="text-xs text-muted-foreground">{formatPrice(up.price)}</p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => addItem(up)}
-                        className="text-xs border border-accent text-accent px-4 py-2 rounded-full hover:bg-accent hover:text-white transition-colors"
+                        className="text-xs border border-accent text-accent px-4 py-2 rounded-full hover:bg-accent hover:text-white transition-colors shrink-0"
                       >
                         Add
                       </button>
@@ -233,7 +280,11 @@ export default function ProductPage({
           <h2 className="font-serif text-3xl font-semibold mb-8">You May Also Like</h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
             {products
-              .filter((p) => p.id !== product.id && p.category === product.category)
+              .filter((p) => {
+                if (p.id === product.id) return false;
+                if (product.supplier === "asever") return p.supplier === "asever";
+                return p.category === product.category || p.brand === product.brand;
+              })
               .slice(0, 4)
               .map((p, i) => (
                 <ProductCard key={p.id} product={p} index={i} />
@@ -241,6 +292,8 @@ export default function ProductPage({
           </div>
         </section>
       </div>
+
+      <StickyMobileCheckout product={product} quantity={quantity} />
     </main>
   );
 }

@@ -3,10 +3,12 @@
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { CartProvider } from "@/lib/cart-context";
+import { CatalogProvider } from "@/lib/catalog-context";
 import { PreloaderGate } from "@/components/preloader";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { PageTransition } from "@/components/page-transition";
+import { PageIntro } from "@/components/page-intro";
 
 const CartDrawer = dynamic(() => import("@/components/cart-drawer").then((m) => m.CartDrawer), {
   ssr: false,
@@ -36,20 +38,23 @@ export function StoreShell({ children }: { children: React.ReactNode }) {
 
   return (
     <CartProvider>
-      <PreloaderGate onPreloaderComplete={handlePreloaderComplete}>
-        <Header />
-        <PageTransition>{children}</PageTransition>
-        <Footer />
-        {preloaderDone && (
-          <>
-            <CartDrawer />
-            <Chatbot />
-            <SkinAnalysisFab />
-            <RecentlyPurchased />
-            <NewsletterPopup />
-          </>
-        )}
-      </PreloaderGate>
+      <CatalogProvider>
+        <PreloaderGate onPreloaderComplete={handlePreloaderComplete}>
+          <Header />
+          <PageIntro />
+          <PageTransition>{children}</PageTransition>
+          <Footer />
+          {preloaderDone && (
+            <>
+              <CartDrawer />
+              <Chatbot />
+              <SkinAnalysisFab />
+              <RecentlyPurchased />
+              <NewsletterPopup />
+            </>
+          )}
+        </PreloaderGate>
+      </CatalogProvider>
     </CartProvider>
   );
 }

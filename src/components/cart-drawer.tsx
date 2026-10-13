@@ -5,10 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
-import { getUpsellProducts } from "@/lib/products";
+import { useCatalog } from "@/lib/catalog-context";
+import { getUpsellProducts } from "@/lib/catalog-helpers";
 import { formatPrice, FREE_SHIPPING_THRESHOLD } from "@/lib/utils";
 
 export function CartDrawer() {
+  const { products: catalog } = useCatalog();
   const {
     items,
     isOpen,
@@ -22,7 +24,7 @@ export function CartDrawer() {
     setShowUpsell,
   } = useCart();
 
-  const upsells = lastAddedProduct ? getUpsellProducts(lastAddedProduct) : [];
+  const upsells = lastAddedProduct ? getUpsellProducts(lastAddedProduct, catalog) : [];
 
   return (
     <AnimatePresence>

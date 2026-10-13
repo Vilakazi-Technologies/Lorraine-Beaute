@@ -74,6 +74,11 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
             ({product.reviewCount.toLocaleString()})
           </span>
         </div>
+        {product.brand && (
+          <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground">
+            {product.brand}
+          </p>
+        )}
         <Link href={`/product/${product.slug}`}>
           <h3 className="font-serif text-lg leading-tight group-hover:text-accent transition-colors">
             {product.name}

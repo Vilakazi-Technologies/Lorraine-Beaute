@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeSkinWithClaude } from "@/lib/claude-commerce";
+import { loadMergedCatalog } from "@/lib/catalog";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +14,8 @@ export async function POST(req: NextRequest) {
       ? ("image/png" as const)
       : ("image/jpeg" as const);
 
-    const result = await analyzeSkinWithClaude(image, mediaType);
+    const catalog = await loadMergedCatalog(true);
+    const result = await analyzeSkinWithClaude(image, catalog, mediaType);
     return NextResponse.json(result);
   } catch (error) {
     console.error("Skin analysis error:", error);

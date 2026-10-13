@@ -1,33 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ShoppingBag } from "lucide-react";
-import Image from "next/image";
-import { recentPurchases } from "@/lib/products";
+import { useCatalog } from "@/lib/catalog-context";
+
+const cities = ["Cape Town", "Johannesburg", "Durban", "Pretoria", "Stellenbosch", "Sandton"];
+const names = ["Thandi", "Lerato", "Aisha", "Nomsa", "Emma", "Zanele", "Priya", "Chloe"];
 
 export function RecentlyPurchased() {
+  const { products } = useCatalog();
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(false);
 
-  useEffect(() => {
-    const showTimer = setTimeout(() => setVisible(true), 5000);
-    return () => clearTimeout(showTimer);
-  }, []);
+  const purchases = useMemo(() => {
+    if (products.length === 0) return [];
+    return products.slice(0, 8).map((p, i) => ({
+      name: names[i % names.length],
+      city: cities[i % cities.length],
+      product: p.name,
+      minutesAgo: 3 + (i * 7) % 45,
+    }));
+  }, [products]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (purchases.length === 0) return;
+    const showTimer = setTimeout(() => setVisible(true), 5000);
+    return () => clearTimeout(showTimer);
+  }, [purchases.length]);
+
+  useEffect(() => {
+    if (!visible || purchases.length === 0) return;
     const interval = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
-        setIndex((prev) => (prev + 1) % recentPurchases.length);
+        setIndex((prev) => (prev + 1) % purchases.length);
         setVisible(true);
       }, 500);
     }, 8000);
     return () => clearInterval(interval);
-  }, [visible]);
+  }, [visible, purchases.length]);
 
-  const purchase = recentPurchases[index];
+  if (purchases.length === 0) return null;
+
+  const purchase = purchases[index];
 
   return (
     <AnimatePresence>

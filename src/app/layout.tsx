@@ -25,9 +25,9 @@ const greatVibes = Great_Vibes({
 });
 
 export const metadata: Metadata = {
-  title: "Lorraine Beauté | Luxury Skincare, Lips & Fragrance",
+  title: "Lorraine Beauté | Korean Skincare",
   description:
-    "Curated beauty for South Africa and beyond. AI skin analysis, personalised recommendations, lips, skincare, fragrance, and gift sets.",
+    "Authentic Korean skincare — LANEIGE, Beauty of Joseon, and curated K-beauty with free AI skin analysis. Curated for South Africa.",
 };
 
 export default function RootLayout({

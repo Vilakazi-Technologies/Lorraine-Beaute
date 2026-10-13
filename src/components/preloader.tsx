@@ -8,7 +8,7 @@ import { STORE_NAME } from "@/lib/utils";
 const SCROLL_KEY = "lorraine-beaute-scroll";
 
 const LOGO_CLASS =
-  "font-cursive text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-accent-dark leading-none";
+  "font-cursive text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-accent-dark leading-[1.35] py-3 overflow-visible";
 
 function CursiveTypewriter({ onComplete }: { onComplete: () => void }) {
   const [displayed, setDisplayed] = useState("");
@@ -58,7 +58,7 @@ function CursiveTypewriter({ onComplete }: { onComplete: () => void }) {
     >
       <div className="absolute inset-0 bg-gradient-to-b from-rose/25 via-transparent to-cream/40 pointer-events-none" />
 
-      <div className="relative text-center px-6 min-h-[1.2em]">
+      <div className="relative text-center px-6 overflow-visible">
         <p className={LOGO_CLASS}>{displayed}</p>
       </div>
 

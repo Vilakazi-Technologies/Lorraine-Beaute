@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, X, Sparkles, RotateCcw, ShoppingBag, ScanFace } from "lucide-react";
 import { getRecommendedProducts, type SkinAnalysisResult } from "@/lib/claude-commerce";
-import { formatPrice } from "@/lib/utils";
+import { useCatalog } from "@/lib/catalog-context";
 import { ProductCard } from "./product-card";
 
 type Step = "intro" | "camera" | "analyzing" | "results";
@@ -16,7 +16,21 @@ interface SkinAnalysisProps {
   onClose?: () => void;
 }
 
+function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
+  if (video.videoWidth > 0 && video.videoHeight > 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("Camera preview timed out")), 8000);
+    video.onloadedmetadata = () => {
+      clearTimeout(timeout);
+      resolve();
+    };
+  });
+}
+
 export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
+  const { products: catalog } = useCatalog();
   const [step, setStep] = useState<Step>("intro");
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -24,48 +38,70 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  const startCamera = useCallback(async () => {
-    setError(null);
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      setStream(mediaStream);
-      setStep("camera");
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-        }
-      }, 100);
-    } catch {
-      setError("Camera access is required for skin analysis. Please allow camera permissions and try again.");
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setStream(null);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
   }, []);
 
-  const stopCamera = useCallback(() => {
-    stream?.getTracks().forEach((t) => t.stop());
-    setStream(null);
-  }, [stream]);
-
-  const capturePhoto = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    setCapturedImage(dataUrl);
+  const startCamera = useCallback(async () => {
+    setError(null);
     stopCamera();
-    analyzeSkin(dataUrl);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError(
+        "Your browser does not support camera access. Try Chrome or Safari on HTTPS, or use the full Skin Analysis page."
+      );
+      return;
+    }
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      streamRef.current = mediaStream;
+      setStream(mediaStream);
+      setStep("camera");
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : "";
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        setError(
+          "Camera permission was blocked. Allow camera access for this site in your browser settings, then tap Start Skin Scan again."
+        );
+      } else if (name === "NotFoundError") {
+        setError("No camera was found on this device.");
+      } else {
+        setError("Could not open the camera. Please try again on a device with a front camera.");
+      }
+      setStep("intro");
+    }
   }, [stopCamera]);
 
-  const analyzeSkin = async (imageData: string) => {
+  useEffect(() => {
+    if (step !== "camera" || !stream || !videoRef.current) return;
+    const video = videoRef.current;
+    video.srcObject = stream;
+    video.muted = true;
+    void video.play().catch(() => {
+      setError("Could not start the camera preview. Tap Start Skin Scan to retry.");
+    });
+  }, [step, stream]);
+
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  const analyzeSkin = useCallback(async (imageData: string) => {
     setStep("analyzing");
     setError(null);
 
@@ -77,15 +113,44 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
       });
 
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      if (!res.ok || data.error) {
+        throw new Error(data.error ?? "Analysis failed");
+      }
       setResult(data);
       setStep("results");
     } catch {
-      setError("Analysis failed. Please try again.");
-      setStep("camera");
-      startCamera();
+      setError("Analysis could not complete. Your photo was captured — please try again.");
+      setStep("intro");
     }
-  };
+  }, []);
+
+  const capturePhoto = useCallback(async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    try {
+      await waitForVideoReady(video);
+    } catch {
+      setError("Camera is still loading. Wait a moment, then capture again.");
+      return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setCapturedImage(dataUrl);
+    stopCamera();
+    await analyzeSkin(dataUrl);
+  }, [analyzeSkin, stopCamera]);
 
   const reset = () => {
     stopCamera();
@@ -96,7 +161,7 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
   };
 
   const recommendedProducts = result
-    ? getRecommendedProducts(result.recommendedProductIds)
+    ? getRecommendedProducts(result.recommendedProductIds, catalog)
     : [];
 
   const containerClass =
@@ -107,7 +172,7 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
   return (
     <div className={containerClass}>
       {variant === "modal" && (
-        <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+        <div className="fixed inset-0 bg-black/50" onClick={onClose} aria-hidden />
       )}
 
       <div
@@ -146,18 +211,24 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
                 AI Skin Analysis
               </h1>
               <p className="text-muted-foreground max-w-md mx-auto mb-8 leading-relaxed">
-                Scan your face for a personalised digital skin assessment. Our Claude-powered AI
-                analyses your skin and recommends the perfect Lorraine Beauté products for you.
+                Scan your face for a personalised digital skin assessment. Our AI analyses your
+                skin and recommends products from our live K-beauty catalog.
               </p>
               {error && (
-                <p className="text-sm text-accent mb-4">{error}</p>
+                <p className="text-sm text-accent mb-4 max-w-md mx-auto">{error}</p>
+              )}
+              {capturedImage && error && (
+                <div className="relative w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden border border-border">
+                  <Image src={capturedImage} alt="Last capture" fill className="object-cover" unoptimized />
+                </div>
               )}
               <button
-                onClick={startCamera}
+                type="button"
+                onClick={() => void startCamera()}
                 className="inline-flex items-center gap-2 bg-accent text-white px-8 py-4 rounded-full text-sm tracking-[0.15em] uppercase font-medium hover:bg-accent-dark transition-colors"
               >
                 <Camera className="w-4 h-4" />
-                Start Skin Scan
+                {capturedImage && error ? "Retry Skin Scan" : "Start Skin Scan"}
               </button>
               <p className="text-xs text-muted-foreground mt-4">
                 Your photo is analysed securely and never stored
@@ -183,7 +254,7 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover mirror"
+                  className="w-full h-full object-cover"
                   style={{ transform: "scaleX(-1)" }}
                 />
                 <div className="absolute inset-0 border-2 border-white/30 rounded-[50%] m-8 pointer-events-none" />
@@ -191,13 +262,15 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
               <canvas ref={canvasRef} className="hidden" />
               <div className="flex justify-center gap-4">
                 <button
+                  type="button"
                   onClick={reset}
                   className="px-6 py-3 border border-border rounded-full text-sm"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={capturePhoto}
+                  type="button"
+                  onClick={() => void capturePhoto()}
                   className="inline-flex items-center gap-2 bg-accent text-white px-8 py-3 rounded-full text-sm tracking-wide uppercase font-medium"
                 >
                   <Camera className="w-4 h-4" />
@@ -222,7 +295,7 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
               <Sparkles className="w-6 h-6 text-gold mx-auto mb-4" />
               <h2 className="font-serif text-2xl mb-2">Analysing Your Skin</h2>
               <p className="text-muted-foreground text-sm">
-                Claude AI is assessing your skin profile...
+                Matching your profile to our catalog...
               </p>
               {capturedImage && (
                 <div className="relative w-24 h-24 mx-auto mt-6 rounded-full overflow-hidden border-2 border-accent/30">
@@ -290,14 +363,21 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
               <h3 className="font-serif text-xl sm:text-2xl font-semibold mb-6">
                 Recommended For You
               </h3>
-              <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-8">
-                {recommendedProducts.map((product, i) => (
-                  <ProductCard key={product.id} product={product} index={i} />
-                ))}
-              </div>
+              {recommendedProducts.length > 0 ? (
+                <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-8">
+                  {recommendedProducts.map((product, i) => (
+                    <ProductCard key={product.id} product={product} index={i} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground mb-8">
+                  Browse the shop for products matched to your routine.
+                </p>
+              )}
 
               <div className="flex flex-wrap gap-3 justify-center">
                 <button
+                  type="button"
                   onClick={reset}
                   className="inline-flex items-center gap-2 px-6 py-3 border border-border rounded-full text-sm"
                 >
@@ -306,6 +386,7 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
                 </button>
                 {variant === "modal" && onClose ? (
                   <button
+                    type="button"
                     onClick={onClose}
                     className="inline-flex items-center gap-2 bg-accent text-white px-8 py-3 rounded-full text-sm tracking-wide uppercase font-medium"
                   >

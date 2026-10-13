@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClaudeProductRecommendation } from "@/lib/claude-commerce";
+import { loadMergedCatalog } from "@/lib/catalog";
 
 export async function POST(req: NextRequest) {
   const { message, history } = await req.json();
@@ -8,18 +9,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Message is required" }, { status: 400 });
   }
 
+  const catalog = await loadMergedCatalog();
   const openaiKey = process.env.OPENAI_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
   if (anthropicKey) {
-    const reply = await getClaudeProductRecommendation(message, history ?? []);
+    const reply = await getClaudeProductRecommendation(message, catalog, history ?? []);
     return NextResponse.json({ reply, poweredBy: "claude" });
   }
 
   if (openaiKey) {
     try {
-      const { products } = await import("@/lib/products");
-      const system = `You are the Lorraine Beauté shopping assistant. Prices in ZAR (South African Rand). Free shipping over R900. Code WELCOME15 for 15% off.\n\nCatalog:\n${products.map((p) => `- ${p.name} (R${p.price}): ${p.description}`).join("\n")}`;
+      const system = `You are the Lorraine Beauté shopping assistant. Prices in ZAR (South African Rand). Free shipping over R900. Code WELCOME15 for 15% off.\n\nCatalog:\n${catalog.map((p) => `- ${p.name} (R${p.price}): ${p.description}`).join("\n")}`;
 
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -51,6 +52,6 @@ export async function POST(req: NextRequest) {
   }
 
   const { getClaudeProductRecommendation: fallback } = await import("@/lib/claude-commerce");
-  const reply = await fallback(message, history ?? []);
+  const reply = await fallback(message, catalog, history ?? []);
   return NextResponse.json({ reply, poweredBy: "demo" });
 }

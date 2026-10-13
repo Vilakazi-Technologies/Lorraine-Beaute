@@ -58,12 +58,51 @@ body {
   100% { transform: translateX(-50%); }
 }
 
+.announcement-track {
+  animation: marquee 45s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-track {
+    animation: none;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 .animate-marquee {
   animation: marquee 30s linear infinite;
 }
 
 .font-cursive {
   font-family: var(--font-cursive), "Great Vibes", cursive;
+}
+
+/* Full brand name — cursive ascenders/descenders must not clip */
+.brand-logo {
+  font-family: var(--font-cursive), "Great Vibes", cursive;
+  display: inline-block;
+  overflow: visible;
+  white-space: nowrap;
+  line-height: 1.4;
+  padding: 0.12em 0.2em 0.28em;
+  font-size: clamp(1.5rem, 5.2vw, 2.75rem);
 }
 
 @keyframes cursor-blink {
