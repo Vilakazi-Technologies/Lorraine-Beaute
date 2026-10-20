@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Lock, CheckCircle } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
 import { formatPrice, FREE_SHIPPING_THRESHOLD } from "@/lib/utils";
+import { CheckoutAiCoach } from "@/components/checkout-ai-coach";
 
 export default function CheckoutPage() {
   const { items, subtotal, clearCart } = useCart();
@@ -106,6 +107,7 @@ export default function CheckoutPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
           <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-8">
+            <CheckoutAiCoach subtotal={subtotal} />
             <section>
               <h2 className="text-sm tracking-[0.2em] uppercase font-medium mb-4">Contact</h2>
               <input

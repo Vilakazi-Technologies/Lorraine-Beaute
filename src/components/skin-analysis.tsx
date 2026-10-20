@@ -5,11 +5,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, X, Sparkles, RotateCcw, ShoppingBag, ScanFace } from "lucide-react";
-import { getRecommendedProducts, type SkinAnalysisResult } from "@/lib/claude-commerce";
+import {
+  getRecommendedProducts,
+  type SkinAnalysisResult,
+} from "@/lib/vilatech-ai/commerce";
+import type { SkinQuestionnaireAnswers } from "@/lib/skin-questionnaire";
+import { emptyQuestionnaire } from "@/lib/skin-questionnaire";
 import { useCatalog } from "@/lib/catalog-context";
 import { ProductCard } from "./product-card";
+import { SkinQuestionnaireForm } from "./skin-questionnaire-form";
 
-type Step = "intro" | "camera" | "analyzing" | "results";
+type Step = "intro" | "questionnaire" | "camera" | "analyzing" | "results";
 
 interface SkinAnalysisProps {
   variant?: "page" | "modal";
@@ -35,6 +41,9 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [result, setResult] = useState<SkinAnalysisResult | null>(null);
+  const [questionnaire, setQuestionnaire] = useState<SkinQuestionnaireAnswers>(
+    emptyQuestionnaire()
+  );
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -109,7 +118,7 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
       const res = await fetch("/api/skin-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: imageData }),
+        body: JSON.stringify({ image: imageData, questionnaire }),
       });
 
       const data = await res.json();
@@ -122,7 +131,7 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
       setError("Analysis could not complete. Your photo was captured — please try again.");
       setStep("intro");
     }
-  }, []);
+  }, [questionnaire]);
 
   const capturePhoto = useCallback(async () => {
     const video = videoRef.current;
@@ -156,6 +165,7 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
     stopCamera();
     setCapturedImage(null);
     setResult(null);
+    setQuestionnaire(emptyQuestionnaire());
     setError(null);
     setStep("intro");
   };
@@ -211,8 +221,8 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
                 AI Skin Analysis
               </h1>
               <p className="text-muted-foreground max-w-md mx-auto mb-8 leading-relaxed">
-                Scan your face for a personalised digital skin assessment. Our AI analyses your
-                skin and recommends products from our live K-beauty catalog.
+                Answer a short questionnaire, then scan your face. ViLATECH AI combines both for
+                accurate recommendations from our live K-beauty catalog.
               </p>
               {error && (
                 <p className="text-sm text-accent mb-4 max-w-md mx-auto">{error}</p>
@@ -224,16 +234,29 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
               )}
               <button
                 type="button"
-                onClick={() => void startCamera()}
+                onClick={() => {
+                  setError(null);
+                  setStep("questionnaire");
+                }}
                 className="inline-flex items-center gap-2 bg-accent text-white px-8 py-4 rounded-full text-sm tracking-[0.15em] uppercase font-medium hover:bg-accent-dark transition-colors"
               >
                 <Camera className="w-4 h-4" />
-                {capturedImage && error ? "Retry Skin Scan" : "Start Skin Scan"}
+                {capturedImage && error ? "Retry questionnaire & scan" : "Start — questionnaire first"}
               </button>
               <p className="text-xs text-muted-foreground mt-4">
                 Your photo is analysed securely and never stored
               </p>
             </motion.div>
+          )}
+
+          {step === "questionnaire" && (
+            <SkinQuestionnaireForm
+              onComplete={(answers) => {
+                setQuestionnaire(answers);
+                void startCamera();
+              }}
+              onBack={() => setStep("intro")}
+            />
           )}
 
           {step === "camera" && (

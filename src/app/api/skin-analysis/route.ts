@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeSkinWithClaude } from "@/lib/claude-commerce";
 import { loadMergedCatalog } from "@/lib/catalog";
+import type { SkinQuestionnaireAnswers } from "@/lib/skin-questionnaire";
+import { emptyQuestionnaire } from "@/lib/skin-questionnaire";
+import { runSkinAnalysis } from "@/lib/vilatech-ai/commerce";
 
 export async function POST(req: NextRequest) {
   try {
-    const { image } = await req.json();
+    const { image, questionnaire } = await req.json();
 
     if (!image || typeof image !== "string") {
       return NextResponse.json({ error: "Image is required" }, { status: 400 });
     }
 
-    const mediaType = image.includes("image/png")
-      ? ("image/png" as const)
-      : ("image/jpeg" as const);
+    const answers: SkinQuestionnaireAnswers = {
+      ...emptyQuestionnaire(),
+      ...(questionnaire && typeof questionnaire === "object" ? questionnaire : {}),
+    };
 
     const catalog = await loadMergedCatalog(true);
-    const result = await analyzeSkinWithClaude(image, catalog, mediaType);
+    const result = await runSkinAnalysis(image, catalog, answers);
     return NextResponse.json(result);
   } catch (error) {
     console.error("Skin analysis error:", error);

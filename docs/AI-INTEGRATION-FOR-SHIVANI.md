@@ -18,25 +18,34 @@ Both features read the **live product catalog** from `/api/catalog` (K-Dropshipp
 
 ---
 
-## Step 1 — Anthropic (required for full AI)
+## Step 1 — ViLATECH AI (same stack as `vilatech-ai` repo)
 
-1. Sign in at [Anthropic Console](https://console.anthropic.com/) (or use the org account Vilakazi/Lorraine uses).
-2. Create an **API key** with access to **Messages API** and a model that supports **images** (skin analysis sends a base64 JPEG from the customer’s camera).
-3. In **Vercel** → project **lorraine-beauty-store** → **Settings** → **Environment Variables**, add:
+The store uses **`src/lib/vilatech-ai/commerce.ts`**. Provider priority:
 
-   | Variable | Value | Environments |
-   |----------|--------|--------------|
-   | `ANTHROPIC_API_KEY` | `sk-ant-...` (secret) | Production, Preview, Development |
+1. **Xavani** — if `XAVANI_API_KEY` + `XAVANI_BASE_URL` (preferred for chat + checkout coach JSON)
+2. **OpenRouter** — if `OPENROUTER_API_KEY` (chat, checkout, **skin vision**)
+3. **Anthropic** — fallback for **skin vision** only if OpenRouter is unset
 
-4. Optional — override model (default in code is `claude-sonnet-4-20250514`):
+In **Vercel** → **lorraine-beauty-store** → **Environment Variables**:
 
-   | Variable | Example |
-   |----------|---------|
-   | `CLAUDE_MODEL` | `claude-sonnet-4-20250514` |
+| Variable | Purpose |
+|----------|---------|
+| `XAVANI_BASE_URL` | e.g. your Xavani gateway origin (no path) |
+| `XAVANI_API_KEY` | Server secret |
+| `XAVANI_MODEL` | Default `omera` |
+| `OPENROUTER_API_KEY` | Recommended for skin photo analysis (vision) |
+| `OPENROUTER_MODEL` | e.g. `google/gemini-2.5-flash-lite` |
+| `OPENROUTER_VISION_MODEL` | Same or another vision-capable model |
+| `ANTHROPIC_API_KEY` | Optional vision fallback |
+| `NEXT_PUBLIC_STORE_URL` | Production URL for OpenRouter referer |
 
-5. **Redeploy** production after saving env vars (Vercel does not inject new secrets into an already-running deployment until redeploy).
+**Redeploy** after adding secrets.
 
-**Code reference:** `src/lib/claude-commerce.ts` — `analyzeSkinWithClaude()` and `getClaudeProductRecommendation()`.
+**Features wired:**
+
+- **Chatbot** → `/api/chat` → product cards from `productIds`
+- **Skin analysis** → questionnaire → camera → `/api/skin-analysis`
+- **Checkout coach** → `/api/checkout/assist` → upsells + trust copy
 
 ---
 

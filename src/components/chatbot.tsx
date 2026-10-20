@@ -1,21 +1,26 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, X, Send, Sparkles } from "lucide-react";
+import { useCatalog } from "@/lib/catalog-context";
+import { ChatProductSuggestions } from "./chat-product-suggestions";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  productIds?: string[];
 }
 
 export function Chatbot() {
+  const { products: catalog } = useCatalog();
   const [open, setOpen] = useState(false);
+  const [poweredBy, setPoweredBy] = useState("ViLATECH AI");
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
       content:
-        "Hi! I'm your Lorraine Beauté assistant. I can help you find products, explain our AI Skin Analysis, or assist with your order. How can I help?",
+        "Hi! I'm your Lorraine Beauté assistant powered by ViLATECH AI. I can recommend K-beauty from our live catalog, explain Skin Analysis, or help you checkout. What are you looking for?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -42,9 +47,14 @@ export function Chatbot() {
       });
 
       const data = await res.json();
+      if (data.poweredBy) setPoweredBy(data.poweredBy);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.reply },
+        {
+          role: "assistant",
+          content: data.reply,
+          productIds: Array.isArray(data.productIds) ? data.productIds : [],
+        },
       ]);
     } catch {
       setMessages((prev) => [
@@ -52,13 +62,19 @@ export function Chatbot() {
         {
           role: "assistant",
           content:
-            "I'm sorry, I'm having trouble connecting right now. Please try again or email us at hello@lorrainebeauty.com",
+            "I'm sorry, I'm having trouble connecting right now. Please try again or email hello@lorrainebeauty.com",
         },
       ]);
     } finally {
       setLoading(false);
     }
   };
+
+  const suggestedProducts = useMemo(() => {
+    const map = new Map(catalog.map((p) => [p.id, p]));
+    return (ids: string[] | undefined) =>
+      (ids ?? []).map((id) => map.get(id)).filter(Boolean) as typeof catalog;
+  }, [catalog]);
 
   return (
     <>
@@ -70,14 +86,14 @@ export function Chatbot() {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", damping: 25 }}
             className="fixed bottom-24 right-4 z-50 w-[90vw] max-w-sm bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-            style={{ height: "min(500px, 70vh)" }}
+            style={{ height: "min(520px, 72vh)" }}
           >
             <div className="bg-accent-dark text-white px-5 py-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-gold" />
                 <div>
                   <p className="text-sm font-medium">Beauty Assistant</p>
-                  <p className="text-[10px] text-white/60">Powered by Claude AI</p>
+                  <p className="text-[10px] text-white/60">{poweredBy}</p>
                 </div>
               </div>
               <button
@@ -93,10 +109,10 @@ export function Chatbot() {
               {messages.map((msg, i) => (
                 <div
                   key={i}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                    className={`max-w-[90%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                       msg.role === "user"
                         ? "bg-accent text-white rounded-br-sm"
                         : "bg-muted text-foreground rounded-bl-sm"
@@ -104,6 +120,11 @@ export function Chatbot() {
                   >
                     {msg.content}
                   </div>
+                  {msg.role === "assistant" && msg.productIds && msg.productIds.length > 0 && (
+                    <div className="max-w-[90%] w-full">
+                      <ChatProductSuggestions products={suggestedProducts(msg.productIds)} />
+                    </div>
+                  )}
                 </div>
               ))}
               {loading && (
