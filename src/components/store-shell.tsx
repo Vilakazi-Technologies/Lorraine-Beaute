@@ -38,6 +38,12 @@ export function StoreShell({ children }: { children: React.ReactNode }) {
 
   return (
     <CartProvider>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[400] focus:bg-accent focus:text-white focus:px-4 focus:py-2 focus:rounded-sm focus:text-sm"
+      >
+        Skip to main content
+      </a>
       <CatalogProvider>
         <PreloaderGate onPreloaderComplete={handlePreloaderComplete}>
           <Header />

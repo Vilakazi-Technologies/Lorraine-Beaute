@@ -20,7 +20,10 @@ import {
   resolveVilatechProvider,
   resolveVisionProvider,
 } from "@/lib/vilatech-ai/provider";
-import { xavaniCompleteJson, xavaniCompleteText } from "@/lib/vilatech-ai/xavani-client";
+import {
+  gatewayCompleteJson,
+  gatewayCompleteVisionJson,
+} from "@/lib/vilatech-ai/gateway-client";
 
 export interface SkinAnalysisResult {
   skinType: string;
@@ -46,16 +49,17 @@ export interface CheckoutAssistResult {
 const SKIN_JSON_SHAPE = `{
   "skinType": "oily|dry|combination|normal|sensitive",
   "concerns": ["dryness","dullness","dark-spots","uneven-tone","fine-lines","texture","large-pores","dehydration","sensitivity","dry-lips"],
-  "summary": "4-5 sentences: what you observe on the photo, how it aligns with the questionnaire, and a clear care focus (not a medical diagnosis)",
-  "recommendations": ["5 specific actionable skincare steps in order AM/PM"],
+  "summary": "6-8 sentences in warm, second-person voice: speak like a trusted skin doctor in consultation — what you see on the photo (zones, pores, tone, hydration, barrier), how it fits their questionnaire, realistic priorities, and a reassuring care plan. No disease diagnosis or prescriptions.",
+  "recommendations": ["5-6 specific AM/PM steps in order, plain language, as a clinician would advise at the end of a visit"],
   "recommendedProductIds": ["ids from catalog, max 4"]
 }`;
 
-const SKIN_ANALYST_SYSTEM = `You are ViLATECH AI — a senior aesthetic skin analyst for Lorraine Beauté (K-beauty, South Africa).
-Think like an experienced dermatology-informed consultant: assess barrier health, hydration, oil balance, pigmentation, texture, and sensitivity from the FACE PHOTO.
-Cross-check every finding with the client's QUESTIONNAIRE answers; if they conflict, explain what you see vs what they reported.
-You educate and recommend cosmetics — you do NOT diagnose disease, prescribe medication, or replace a dermatologist visit.
-If you see signs that need in-person care (severe inflammation, possible infection, widespread rash), say so gently and suggest seeing a dermatologist.
+const SKIN_ANALYST_SYSTEM = `You are ViLATECH AI — a senior aesthetic skin consultant for Lorraine Beauté (K-beauty, South Africa).
+Your tone is calm, personal, and advisory — like a GP or dermatologist explaining findings after looking at the patient's face, not like a generic website.
+Assess barrier health, hydration, oil balance, pigmentation, pore appearance, texture, and sensitivity from the FACE PHOTO.
+Cross-check every finding with the QUESTIONNAIRE; if photo and answers differ, explain both clearly and what you recommend they focus on.
+Educate and recommend cosmetics only — do NOT diagnose disease, prescribe medication, or replace an in-person dermatologist.
+If something needs medical attention (severe inflammation, possible infection, widespread rash), say so gently and suggest professional care.
 Return ONLY valid JSON.`;
 
 const CHAT_JSON_SHAPE = `{
@@ -79,10 +83,18 @@ function parseJson<T>(raw: string): T {
   }
 }
 
-async function completeJson(system: string, userContent: string): Promise<string> {
+async function completeJson(
+  system: string,
+  userContent: string
+): Promise<{ raw: string; poweredBy?: string }> {
   const provider = resolveVilatechProvider();
-  if (provider === "xavani") return xavaniCompleteJson(system, userContent);
-  if (provider === "openrouter") return openRouterCompleteJson(system, userContent);
+  if (provider === "gateway") return gatewayCompleteJson(system, userContent);
+  if (provider === "openrouter") {
+    return {
+      raw: await openRouterCompleteJson(system, userContent),
+      poweredBy: providerLabel("openrouter"),
+    };
+  }
   throw new Error("NO_JSON_PROVIDER");
 }
 
@@ -91,7 +103,14 @@ async function completeChatText(
   messages: { role: "user" | "assistant"; content: string }[]
 ): Promise<string> {
   const provider = resolveVilatechProvider();
-  if (provider === "xavani") return xavaniCompleteText(system, messages);
+  if (provider === "gateway") {
+    const payload = JSON.stringify({ messages: messages.slice(-6) });
+    const { raw } = await gatewayCompleteJson(
+      `${system}\nReply in plain text only (no JSON).`,
+      payload
+    );
+    return raw;
+  }
   if (provider === "openrouter") return openRouterCompleteText(system, messages);
   throw new Error("NO_CHAT_PROVIDER");
 }
@@ -147,21 +166,65 @@ function demoSkinAnalysis(
   const concerns = questionnaire?.concerns.length
     ? mapConcernLabelsToIds(questionnaire.concerns)
     : ["dullness", "dehydration", "uneven-tone"];
-  const skinType =
-    questionnaire?.selfReportedSkinType?.toLowerCase().replace(" ", "") || "combination";
+  const skinTypeRaw =
+    questionnaire?.selfReportedSkinType?.toLowerCase().replace(/\s+/g, "") || "combination";
+  const skinType = skinTypeRaw.includes("not") ? "combination" : skinTypeRaw;
+  const productIds = pickProductsForConcerns(catalog, concerns, 4);
+  const picks = productIds
+    .map((id) => catalog.find((p) => p.id === id)?.name)
+    .filter(Boolean) as string[];
+  const concernText = questionnaire?.concerns.join(", ") || "hydration and radiance";
   return {
-    skinType: skinType.includes("not") ? "combination" : skinType,
+    skinType,
     concerns,
-    summary:
-      "Based on your answers and scan, your skin would benefit from consistent hydration, gentle treatment, and daily SPF — a classic K-beauty path to clearer, calmer skin.",
+    summary: `From your questionnaire and face scan, your ${skinType} skin profile suggests focusing on ${concernText.toLowerCase()}. I would prioritise barrier-friendly hydration, gentle actives, and daily sun protection — the same approach a skin clinician would start with before building a full routine. From our current catalog, I would begin with ${picks.slice(0, 2).join(" and ") || "serum and SPF layers"} and adjust as your skin responds over 4–6 weeks.`,
     recommendations: [
-      "Cleanse gently — avoid stripping foams if skin feels tight",
+      "AM: gentle cleanse → hydrating toner or essence on damp skin → moisturiser → broad-spectrum SPF.",
       questionnaire?.usesSpfDaily
-        ? "Keep up your SPF; reapply if you're outdoors"
-        : "Add a lightweight Korean SPF every morning",
-      "Layer hydration: toner or serum on damp skin, then moisturise",
+        ? "Keep SPF as your non-negotiable; reapply if you are outdoors midday."
+        : "Add a lightweight Korean SPF every morning — this is the single biggest upgrade for tone and ageing.",
+      "PM: double cleanse if you wore SPF/makeup → treatment serum for your main concern → moisturiser to seal.",
+      skinType.includes("oily")
+        ? "Use gel or water-cream textures; avoid heavy balms on congested areas."
+        : "If skin feels tight after washing, choose cream or milk textures and reduce foaming cleansers.",
+      picks[0]
+        ? `Consider ${picks[0]} as your anchor product from our shop.`
+        : "Browse serums and SPF in the shop matched to your goals.",
     ],
-    recommendedProductIds: pickProductsForConcerns(catalog, concerns, 4),
+    recommendedProductIds: productIds,
+  };
+}
+
+function normalizeSkinResult(
+  parsed: Partial<SkinAnalysisResult>,
+  catalog: Product[],
+  questionnaire: SkinQuestionnaireAnswers
+): SkinAnalysisResult {
+  const fallback = demoSkinAnalysis(catalog, questionnaire);
+  const recommendedProductIds = filterValidProductIds(
+    parsed.recommendedProductIds ?? [],
+    catalog
+  );
+  const concerns =
+    parsed.concerns?.length ? parsed.concerns : fallback.concerns;
+  const ids =
+    recommendedProductIds.length > 0
+      ? recommendedProductIds.slice(0, 4)
+      : pickProductsForConcerns(
+          catalog,
+          concerns.length ? concerns : mapConcernLabelsToIds(questionnaire.concerns),
+          4
+        );
+
+  return {
+    skinType: parsed.skinType?.trim() || fallback.skinType,
+    concerns,
+    summary: parsed.summary?.trim() || fallback.summary,
+    recommendations:
+      parsed.recommendations?.filter(Boolean).length
+        ? parsed.recommendations!.filter(Boolean)
+        : fallback.recommendations,
+    recommendedProductIds: ids,
   };
 }
 
@@ -184,13 +247,23 @@ ${catalogSummary}`;
       message,
       history: history.slice(-6),
     });
-    const raw = await completeJson(system, userPayload);
+    const { raw, poweredBy } = await completeJson(system, userPayload);
     const parsed = parseJson<{ reply?: string; productIds?: string[] }>(raw);
     const productIds = filterValidProductIds(parsed.productIds ?? [], catalog).slice(0, 4);
+    let reply = parsed.reply?.trim() ?? "";
+    if (!reply || reply.startsWith("[") || reply.startsWith("{")) {
+      const names = productIds
+        .map((id) => catalog.find((p) => p.id === id)?.name)
+        .filter(Boolean);
+      reply =
+        names.length > 0
+          ? `For what you described, I would look at ${names.join(" and ")} from our live catalog — both fit common ${message.toLowerCase().includes("spf") || message.toLowerCase().includes("sun") ? "sun protection" : "K-beauty"} goals. Tell me your skin type or budget if you want me to narrow further.`
+          : "How can I help you find the right K-beauty product from our catalog?";
+    }
     return {
-      reply: parsed.reply?.trim() || "How can I help you find the right K-beauty product?",
+      reply,
       productIds,
-      poweredBy: providerLabel(resolveVilatechProvider()),
+      poweredBy: poweredBy ?? providerLabel(resolveVilatechProvider()),
     };
   } catch {
     /* text fallback */
@@ -243,29 +316,17 @@ ${catalogSummary}`;
   const visionProvider = resolveVisionProvider();
   try {
     let raw: string;
-    if (visionProvider === "openrouter") {
+    if (visionProvider === "gateway") {
+      raw = (await gatewayCompleteVisionJson(system, userPrompt, imageDataUrl)).raw;
+    } else if (visionProvider === "openrouter") {
       raw = await openRouterVisionJson(system, userPrompt, imageDataUrl);
     } else if (visionProvider === "anthropic") {
       raw = await anthropicVisionJson(system, userPrompt, imageDataUrl);
     } else {
       throw new Error("NO_VISION");
     }
-    const parsed = parseJson<SkinAnalysisResult>(raw);
-    const recommendedProductIds = filterValidProductIds(
-      parsed.recommendedProductIds ?? [],
-      catalog
-    );
-    return {
-      ...parsed,
-      recommendedProductIds:
-        recommendedProductIds.length > 0
-          ? recommendedProductIds.slice(0, 4)
-          : pickProductsForConcerns(
-              catalog,
-              parsed.concerns?.length ? parsed.concerns : mapConcernLabelsToIds(questionnaire.concerns),
-              4
-            ),
-    };
+    const parsed = parseJson<Partial<SkinAnalysisResult>>(raw);
+    return normalizeSkinResult(parsed, catalog, questionnaire);
   } catch {
     return demoSkinAnalysis(catalog, questionnaire);
   }
@@ -290,7 +351,7 @@ Catalog:\n${catalogSummary}`;
   const userPayload = JSON.stringify({ cartItems, subtotal, currency: "ZAR" });
 
   try {
-    const raw = await completeJson(system, userPayload);
+    const { raw, poweredBy } = await completeJson(system, userPayload);
     const parsed = parseJson<{
       coachMessage?: string;
       upsellProductIds?: string[];
@@ -314,7 +375,7 @@ Catalog:\n${catalogSummary}`;
       trustTips: parsed.trustTips?.length
         ? parsed.trustTips.slice(0, 3)
         : ["100% authentic K-beauty", "Secure checkout", "Free shipping over R900"],
-      poweredBy: providerLabel(resolveVilatechProvider()),
+      poweredBy: poweredBy ?? providerLabel(resolveVilatechProvider()),
     };
   } catch {
     return {
@@ -324,7 +385,7 @@ Catalog:\n${catalogSummary}`;
           : "Add one more favourite to reach R900 for free shipping, or checkout now — we'll pack with care.",
       upsellProductIds: pickCheckoutUpsells(catalog, cartIds, 2),
       trustTips: ["Authentic products via K-Dropshipping", "Encrypted checkout", "30-day returns"],
-      poweredBy: "ViLATECH AI",
+      poweredBy: "ViLATECH AI - Gemini 2.5 Flash",
     };
   }
 }

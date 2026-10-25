@@ -1,10 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { ScanFace, ArrowRight } from "lucide-react";
+import { VILATECH_AI } from "@/lib/brand";
 
 export function SkinAnalysisBanner() {
+  const openSkinAnalysis = () => {
+    window.dispatchEvent(new CustomEvent("lorraine:open-skin-analysis"));
+  };
+
   return (
     <section className="py-16 sm:py-20 bg-accent-dark text-white overflow-hidden relative">
       <div className="absolute inset-0 bg-gradient-to-r from-accent-dark via-accent-dark/95 to-accent/40 pointer-events-none" />
@@ -26,17 +30,17 @@ export function SkinAnalysisBanner() {
               AI Skin Analysis — Free & Personalised
             </h2>
             <p className="text-white/70 leading-relaxed mb-8">
-              Scan your face for a complete digital skin assessment. Claude AI analyses your
-              skin type and concerns, then recommends the perfect Korean skincare products
-              tailored just for you.
+              Answer a few questions, scan your face, and let {VILATECH_AI} guide you step by step
+              — like a skin consultation — then match you to Korean products from our live catalog.
             </p>
-            <Link
-              href="/skin-analysis"
+            <button
+              type="button"
+              onClick={openSkinAnalysis}
               className="inline-flex items-center gap-2 bg-white text-accent-dark px-8 py-4 text-sm tracking-[0.15em] uppercase font-medium hover:bg-cream transition-colors"
             >
               Start Free Analysis
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </button>
           </motion.div>
 
           <motion.div
@@ -45,7 +49,7 @@ export function SkinAnalysisBanner() {
             viewport={{ once: true }}
             className="grid grid-cols-2 gap-3 sm:gap-4"
           >
-            {["Skin Type", "Concerns", "Expert Tips", "Products"].map((step, i) => (
+            {["Questionnaire", "Face scan", "Consultation", "Products"].map((step, i) => (
               <div
                 key={step}
                 className="bg-white/10 backdrop-blur border border-white/20 rounded-sm p-5 text-center"

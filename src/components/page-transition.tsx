@@ -3,18 +3,22 @@
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { type ReactNode } from "react";
+import { revealTransition } from "@/lib/motion-tokens";
+import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
 
 export function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const reducedMotion = usePrefersReducedMotion();
 
   return (
-    <motion.div
+    <motion.main
+      id="main-content"
       key={pathname}
-      initial={{ opacity: 0, y: 8 }}
+      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+      transition={revealTransition(reducedMotion)}
     >
       {children}
-    </motion.div>
+    </motion.main>
   );
 }

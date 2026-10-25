@@ -89,6 +89,7 @@ export function mapKDropToProduct(raw: KDropProductPayload, index = 0): Product 
     sku,
     supplier: "k-beauty",
     skinConcerns: ["dullness", "dehydration"],
+    sourceUrl: raw.source_url ?? raw.sourceUrl,
   };
 }
 

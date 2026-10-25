@@ -46,12 +46,13 @@ export function Hero() {
               Shop K-Beauty
               <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link
-              href="/skin-analysis"
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent("lorraine:open-skin-analysis"))}
               className="inline-flex items-center justify-center gap-2 border border-gold/60 text-gold px-6 sm:px-8 py-3.5 sm:py-4 text-xs sm:text-sm tracking-[0.15em] uppercase font-medium hover:bg-gold/10 transition-colors"
             >
               Free Skin Analysis
-            </Link>
+            </button>
           </div>
         </motion.div>
       </div>

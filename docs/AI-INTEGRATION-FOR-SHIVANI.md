@@ -18,28 +18,35 @@ Both features read the **live product catalog** from `/api/catalog` (K-Dropshipp
 
 ---
 
-## Step 1 — ViLATECH AI (same stack as `vilatech-ai` repo)
+## Step 1 — ViLATECH AI gateway (same OpenRouter / Gemini as **vilatech-ai** chat)
 
-The store uses **`src/lib/vilatech-ai/commerce.ts`**. Provider priority:
+The store uses **`src/lib/vilatech-ai/commerce.ts`**. By default it does **not** use the old Xavani/Omera mirror. It calls **ViLATECH AI** (`https://vilatech-ai.vercel.app`) which already has **`OPENROUTER_API_KEY`** and **`google/gemini-2.5-flash-lite`** — the same stack as the **AI Form Submission Tool / ViLATECH AI** app.
 
-1. **Xavani** — if `XAVANI_API_KEY` + `XAVANI_BASE_URL` (preferred for chat + checkout coach JSON)
-2. **OpenRouter** — if `OPENROUTER_API_KEY` (chat, checkout, **skin vision**)
-3. **Anthropic** — fallback for **skin vision** only if OpenRouter is unset
+Provider priority on Lorraine:
 
-In **Vercel** → **lorraine-beauty-store** → **Environment Variables**:
+1. **Gateway** — if `VILATECH_STORE_SECRET` is set (and no local `OPENROUTER_API_KEY`)
+2. **OpenRouter** — if you paste `OPENROUTER_API_KEY` on lorraine-beauty-store directly
+3. **Anthropic** — optional vision fallback only
+
+### One-time: shared store secret (both Vercel projects)
+
+Generate a long random string (e.g. 32+ hex chars). Add **the same value** to **Production** on:
+
+| Project | Variable |
+|---------|----------|
+| **vilatech-ai** | `VILATECH_STORE_SECRET` |
+| **lorraine-beauty-store** | `VILATECH_STORE_SECRET` |
+
+Optional on lorraine only:
 
 | Variable | Purpose |
 |----------|---------|
-| `XAVANI_BASE_URL` | e.g. your Xavani gateway origin (no path) |
-| `XAVANI_API_KEY` | Server secret |
-| `XAVANI_MODEL` | Default `omera` |
-| `OPENROUTER_API_KEY` | Recommended for skin photo analysis (vision) |
-| `OPENROUTER_MODEL` | e.g. `google/gemini-2.5-flash-lite` |
-| `OPENROUTER_VISION_MODEL` | Same or another vision-capable model |
-| `ANTHROPIC_API_KEY` | Optional vision fallback |
-| `NEXT_PUBLIC_STORE_URL` | Production URL for OpenRouter referer |
+| `VILATECH_AI_GATEWAY_URL` | Default `https://vilatech-ai.vercel.app` |
+| `OPENROUTER_MODEL` / `OPENROUTER_VISION_MODEL` | Already set to `google/gemini-2.5-flash-lite` |
 
-**Redeploy** after adding secrets.
+**Redeploy lorraine-beauty-store** (and vilatech-ai if you just added the secret there) after saving env vars.
+
+Check: https://lorraine-beauty-store.vercel.app/api/ai/status — expect `"chatProvider": "gateway"`, `"ready": true`, and `"gateway": "https://vilatech-ai.vercel.app"`.
 
 **Features wired:**
 

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Sparkles, ShieldCheck } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
 import { useCatalog } from "@/lib/catalog-context";
+import { VILATECH } from "@/lib/brand";
 import { formatPrice } from "@/lib/utils";
 
 interface AssistPayload {
@@ -68,7 +69,7 @@ export function CheckoutAiCoach({ subtotal }: { subtotal: number }) {
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="w-4 h-4 text-accent" />
         <p className="text-xs tracking-[0.2em] uppercase font-medium text-accent">
-          ViLATECH Checkout Coach
+          {VILATECH} Checkout Coach
         </p>
       </div>
       {loading ? (

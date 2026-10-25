@@ -1,4 +1,5 @@
 import type { Product } from "@/lib/products";
+import { resolveListingImage } from "./listing-image-resolver";
 import type { KDropProductPayload } from "./types";
 import { mapKDropBatch } from "./map-product";
 
@@ -11,22 +12,6 @@ export interface ListingCsvRow {
   status: string;
   createdTime: string;
 }
-
-const BRAND_IMAGES: Record<string, string> = {
-  laneige:
-    "https://cdn.shopify.com/s/files/1/0558/4135/7989/files/03_0805__-_ROW.jpg?v=1787196277",
-  "beauty of joseon":
-    "https://cdn.shopify.com/s/files/1/0558/4135/7989/files/glow-serum-propolis-niacinamide-1-front.webp?v=1770278801",
-  cosrx:
-    "https://cdn.shopify.com/s/files/1/0513/3775/6828/files/advanced-snail-96-mucin-power-essence-cosrx-official-4.jpg?v=1763111577",
-  skin1004:
-    "https://cdn.shopify.com/s/files/1/0590/4538/0253/files/skin1004-ampoule-serum-centella-ampoule-1253199402.jpg?v=1786012992",
-  anua:
-    "https://cdn.shopify.com/s/files/1/0753/1429/9158/files/anua-us-toner-heartleaf-77-soothing-toner-1239193744.jpg?v=1779181932",
-};
-
-const DEFAULT_IMAGE =
-  "https://cdn.shopify.com/s/files/1/0513/3775/6828/files/advanced-snail-96-mucin-power-essence-cosrx-official-4.jpg?v=1763111577";
 
 function parseCsvLine(line: string): string[] {
   const out: string[] = [];
@@ -109,14 +94,6 @@ function estimatePriceZAR(name: string, variants: number): number {
   return 479;
 }
 
-function brandFallbackImage(brand: string): string {
-  const key = brand.toLowerCase();
-  for (const [k, url] of Object.entries(BRAND_IMAGES)) {
-    if (key.includes(k)) return url;
-  }
-  return DEFAULT_IMAGE;
-}
-
 export function listingRowToPayload(
   row: ListingCsvRow,
   imageOverride?: string
@@ -124,7 +101,7 @@ export function listingRowToPayload(
   const brand = extractBrand(row.name);
   const category = inferCategory(row.name);
   const price = estimatePriceZAR(row.name, row.variantCount);
-  const image = imageOverride ?? brandFallbackImage(brand);
+  const image = imageOverride ?? resolveListingImage(row.name, brand);
 
   return {
     sku: row.sku,
@@ -145,6 +122,7 @@ export function listingRowToPayload(
     tags: ["k-dropshipping", brand.toLowerCase().replace(/\s+/g, "-")],
     rating: 4.8,
     review_count: 120 + (row.sku.length % 400),
+    source_url: row.sourceUrl || undefined,
   };
 }
 

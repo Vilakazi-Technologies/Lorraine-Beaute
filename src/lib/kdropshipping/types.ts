@@ -22,6 +22,8 @@ export interface KDropProductPayload {
   vendor?: string;
   rating?: number;
   review_count?: number;
+  source_url?: string;
+  sourceUrl?: string;
 }
 
 export interface KDropWebhookBody {

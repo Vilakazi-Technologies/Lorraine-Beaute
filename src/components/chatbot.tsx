@@ -4,6 +4,9 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, X, Send, Sparkles } from "lucide-react";
 import { useCatalog } from "@/lib/catalog-context";
+import { VILATECH_AI } from "@/lib/brand";
+import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
+import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
 import { ChatProductSuggestions } from "./chat-product-suggestions";
 
 interface Message {
@@ -15,17 +18,20 @@ interface Message {
 export function Chatbot() {
   const { products: catalog } = useCatalog();
   const [open, setOpen] = useState(false);
-  const [poweredBy, setPoweredBy] = useState("ViLATECH AI");
+  const [poweredBy, setPoweredBy] = useState(VILATECH_AI);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
       content:
-        "Hi! I'm your Lorraine Beauté assistant powered by ViLATECH AI. I can recommend K-beauty from our live catalog, explain Skin Analysis, or help you checkout. What are you looking for?",
+        `Hi! I'm your Lorraine Beauté assistant powered by ${VILATECH_AI}. I can recommend K-beauty from our live catalog, explain Skin Analysis, or help you checkout. What are you looking for?`,
     },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
+
+  useBodyScrollLock(open);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -80,12 +86,19 @@ export function Chatbot() {
     <>
       <AnimatePresence>
         {open && (
+          <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[240] bg-black/40"
+            aria-label="Close chat overlay"
+            onClick={() => setOpen(false)}
+          />
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", damping: 25 }}
-            className="fixed bottom-24 right-4 z-50 w-[90vw] max-w-sm bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="fixed bottom-24 right-4 z-[250] w-[90vw] max-w-sm bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
             style={{ height: "min(520px, 72vh)" }}
           >
             <div className="bg-accent-dark text-white px-5 py-4 flex items-center justify-between shrink-0">
@@ -130,10 +143,14 @@ export function Chatbot() {
               {loading && (
                 <div className="flex justify-start">
                   <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-sm">
-                    <div className="flex gap-1">
-                      <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <div className="flex gap-1" aria-label="Assistant is typing">
+                      {[0, 150, 300].map((delay) => (
+                        <span
+                          key={delay}
+                          className={`w-2 h-2 bg-muted-foreground/40 rounded-full ${reducedMotion ? "opacity-70" : "animate-bounce"}`}
+                          style={reducedMotion ? undefined : { animationDelay: `${delay}ms` }}
+                        />
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -160,6 +177,7 @@ export function Chatbot() {
               </button>
             </div>
           </motion.div>
+          </>
         )}
       </AnimatePresence>
 

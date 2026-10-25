@@ -63,7 +63,17 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .announcement-track {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .announcement-track,
+  .animate-marquee {
+    animation: none;
+  }
+
+  .animate-fade-in,
+  .animate-cursor-blink {
     animation: none;
   }
 }

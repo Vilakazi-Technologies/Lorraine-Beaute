@@ -39,7 +39,7 @@ async function post(body: unknown): Promise<Response> {
       Authorization: `Bearer ${apiKey()}`,
       "Content-Type": "application/json",
       "HTTP-Referer": storeReferer(),
-      "X-Title": "Lorraine Beauté · ViLATECH AI",
+      "X-Title": "Lorraine Beaute - ViLATECH AI",
     },
     body: JSON.stringify(body),
     cache: "no-store",

@@ -23,7 +23,7 @@ export const SKIN_QUESTION_STEPS = [
   },
   {
     id: "concerns",
-    label: "What would you like to improve? (pick up to 3)",
+    label: "What would you like to improve?",
     type: "multi" as const,
     max: 3,
     options: [

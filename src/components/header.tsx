@@ -9,7 +9,6 @@ import {
   X,
   Search,
   User,
-  ScanFace,
   ChevronDown,
 } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
@@ -21,7 +20,6 @@ import { AnnouncementBar } from "./announcement-bar";
 const primaryNav = [
   { href: "/shop", label: "Shop" },
   { href: "/shop?category=skincare", label: "Skincare" },
-  { href: "/skin-analysis", label: "Skin Analysis", highlight: true as const },
 ];
 
 const allProductsDropdown = [
@@ -167,10 +165,8 @@ function MobileMenuPortal({
                     className={cn(
                       "text-base tracking-wide py-3 border-b border-border flex items-center gap-2",
                       isActive(link.href) && "text-accent font-medium",
-                      link.highlight && !isActive(link.href) && "text-accent font-medium"
                     )}
                   >
-                    {link.highlight && <ScanFace className="w-4 h-4 shrink-0" />}
                     {link.label}
                   </Link>
                 ))}
@@ -273,10 +269,8 @@ function HeaderInner() {
                     className={cn(
                       "text-sm tracking-wide uppercase transition-colors hover:text-accent flex items-center gap-1.5 whitespace-nowrap",
                       isActive(link.href) ? "text-accent font-medium" : "text-muted-foreground",
-                      link.highlight && !isActive(link.href) && "text-accent"
                     )}
                   >
-                    {link.highlight && <ScanFace className="w-3.5 h-3.5 shrink-0" />}
                     {link.label}
                   </Link>
                 ))}
