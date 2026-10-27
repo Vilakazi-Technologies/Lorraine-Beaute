@@ -28,8 +28,7 @@
       "sku": "1QAEJ85VUU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dry-lips"
       ]
     },
     {
@@ -58,8 +57,8 @@
       "sku": "1QAEJ4VO2U000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dehydration",
+        "dryness"
       ]
     },
     {
@@ -88,8 +87,8 @@
       "sku": "1QAEJ0V5IU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "uneven-tone",
+        "dullness"
       ]
     },
     {
@@ -118,8 +117,9 @@
       "sku": "1QAEIPSU6U000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dehydration",
+        "dryness",
+        "fine-lines"
       ]
     },
     {
@@ -148,8 +148,8 @@
       "sku": "1QAEINFIMU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dehydration",
+        "dryness"
       ]
     },
     {
@@ -178,8 +178,9 @@
       "sku": "1QAEILP72U000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dehydration",
+        "dryness",
+        "fine-lines"
       ]
     },
     {
@@ -208,8 +209,7 @@
       "sku": "1QAEIHR6UU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dry-lips"
       ]
     },
     {
@@ -238,8 +238,9 @@
       "sku": "1QAEIGPRIU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dehydration",
+        "dryness",
+        "dullness"
       ]
     },
     {
@@ -268,8 +269,8 @@
       "sku": "1QAEIDB9AU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dehydration",
+        "texture"
       ]
     },
     {
@@ -298,8 +299,8 @@
       "sku": "1QAEICKU2U000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dehydration",
+        "texture"
       ]
     },
     {
@@ -328,8 +329,8 @@
       "sku": "1QAEIBBTAU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dehydration",
+        "texture"
       ]
     },
     {
@@ -358,8 +359,8 @@
       "sku": "1QAEIALOIU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "dehydration",
+        "texture"
       ]
     },
     {
@@ -388,8 +389,9 @@
       "sku": "1QAEH3TAAU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "uneven-tone",
+        "sensitivity",
+        "fine-lines"
       ]
     },
     {
@@ -418,8 +420,8 @@
       "sku": "1QAEH1CNUU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
-        "dehydration"
+        "large-pores",
+        "texture"
       ]
     },
     {
@@ -448,7 +450,8 @@
       "sku": "1QAEGUMHMU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
+        "fine-lines",
+        "dark-spots",
         "dehydration"
       ]
     },
@@ -479,7 +482,8 @@
       "supplier": "k-beauty",
       "skinConcerns": [
         "dullness",
-        "dehydration"
+        "uneven-tone",
+        "texture"
       ]
     },
     {
@@ -508,8 +512,9 @@
       "sku": "1QAEGQNQEU000",
       "supplier": "k-beauty",
       "skinConcerns": [
+        "texture",
         "dullness",
-        "dehydration"
+        "large-pores"
       ]
     },
     {
@@ -539,7 +544,8 @@
       "supplier": "k-beauty",
       "skinConcerns": [
         "dullness",
-        "dehydration"
+        "texture",
+        "uneven-tone"
       ]
     },
     {
@@ -569,7 +575,8 @@
       "supplier": "k-beauty",
       "skinConcerns": [
         "dullness",
-        "dehydration"
+        "dark-spots",
+        "uneven-tone"
       ]
     },
     {
@@ -598,7 +605,9 @@
       "sku": "1QAEGN23UU000",
       "supplier": "k-beauty",
       "skinConcerns": [
-        "dullness",
+        "uneven-tone",
+        "sensitivity",
+        "fine-lines",
         "dehydration"
       ]
     }

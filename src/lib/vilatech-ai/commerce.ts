@@ -9,6 +9,8 @@ import {
   filterValidProductIds,
   pickCheckoutUpsells,
   pickProductsForConcerns,
+  rankProductsForAnalysis,
+  resolveLooseProductIds,
 } from "@/lib/vilatech-ai/catalog-summary";
 import {
   openRouterCompleteJson,
@@ -31,6 +33,9 @@ export interface SkinAnalysisResult {
   summary: string;
   recommendations: string[];
   recommendedProductIds: string[];
+  productReasons?: Record<string, string>;
+  poweredBy?: string;
+  analysisSource?: "ai" | "fallback";
 }
 
 export interface StoreChatResult {
@@ -49,9 +54,10 @@ export interface CheckoutAssistResult {
 const SKIN_JSON_SHAPE = `{
   "skinType": "oily|dry|combination|normal|sensitive",
   "concerns": ["dryness","dullness","dark-spots","uneven-tone","fine-lines","texture","large-pores","dehydration","sensitivity","dry-lips"],
-  "summary": "6-8 sentences in warm, second-person voice: speak like a trusted skin doctor in consultation — what you see on the photo (zones, pores, tone, hydration, barrier), how it fits their questionnaire, realistic priorities, and a reassuring care plan. No disease diagnosis or prescriptions.",
-  "recommendations": ["5-6 specific AM/PM steps in order, plain language, as a clinician would advise at the end of a visit"],
-  "recommendedProductIds": ["ids from catalog, max 4"]
+  "summary": "6-10 sentences in second person: what you SEE on the photo (forehead, cheeks, nose, chin — pores, oil, hydration, tone, texture). Cross-check questionnaire. Name 2-4 exact products FROM THE CATALOG by full product name and explain why each fits THIS face. No generic skincare lecture.",
+  "recommendations": ["5-6 AM/PM steps; at least 3 steps must name a specific catalog product in plain language"],
+  "recommendedProductIds": ["exact [id] values from catalog, max 4, prefer highest ★ when multiple fit"],
+  "productReasons": { "productId": "one sentence tying this product to what you see on their skin" }
 }`;
 
 const SKIN_ANALYST_SYSTEM = `You are ViLATECH AI — a senior aesthetic skin consultant for Lorraine Beauté (K-beauty, South Africa).
@@ -60,6 +66,8 @@ Assess barrier health, hydration, oil balance, pigmentation, pore appearance, te
 Cross-check every finding with the QUESTIONNAIRE; if photo and answers differ, explain both clearly and what you recommend they focus on.
 Educate and recommend cosmetics only — do NOT diagnose disease, prescribe medication, or replace an in-person dermatologist.
 If something needs medical attention (severe inflammation, possible infection, widespread rash), say so gently and suggest professional care.
+You MUST use only product ids that appear in brackets in the catalog list. Do not invent products.
+When choosing between suitable products, prefer higher star ratings and review counts shown in the catalog.
 Return ONLY valid JSON.`;
 
 const CHAT_JSON_SHAPE = `{
@@ -159,6 +167,25 @@ async function anthropicVisionJson(
   return text.trim();
 }
 
+function ensureProductReasons(
+  ids: string[],
+  catalog: Product[],
+  concernIds: string[],
+  existing?: Record<string, string>
+): Record<string, string> {
+  const out = { ...(existing ?? {}) };
+  for (const id of ids) {
+    if (out[id]?.trim()) continue;
+    const p = catalog.find((x) => x.id === id);
+    if (!p) continue;
+    const overlap = p.skinConcerns?.filter((c) => concernIds.includes(c)) ?? [];
+    const focus = (overlap[0] ?? concernIds[0] ?? "your goals").replace(/-/g, " ");
+    out[id] =
+      `${p.name} is chosen for ${focus} — ★${p.rating.toFixed(1)} with ${p.reviewCount.toLocaleString()} reviews in our catalog.`;
+  }
+  return out;
+}
+
 function demoSkinAnalysis(
   catalog: Product[],
   questionnaire?: SkinQuestionnaireAnswers
@@ -169,11 +196,12 @@ function demoSkinAnalysis(
   const skinTypeRaw =
     questionnaire?.selfReportedSkinType?.toLowerCase().replace(/\s+/g, "") || "combination";
   const skinType = skinTypeRaw.includes("not") ? "combination" : skinTypeRaw;
-  const productIds = pickProductsForConcerns(catalog, concerns, 4);
+  const productIds = rankProductsForAnalysis(catalog, concerns, []);
   const picks = productIds
     .map((id) => catalog.find((p) => p.id === id)?.name)
     .filter(Boolean) as string[];
   const concernText = questionnaire?.concerns.join(", ") || "hydration and radiance";
+  const productReasons = ensureProductReasons(productIds, catalog, concerns);
   return {
     skinType,
     concerns,
@@ -192,40 +220,126 @@ function demoSkinAnalysis(
         : "Browse serums and SPF in the shop matched to your goals.",
     ],
     recommendedProductIds: productIds,
+    productReasons,
   };
 }
 
 function normalizeSkinResult(
-  parsed: Partial<SkinAnalysisResult>,
+  parsed: Partial<SkinAnalysisResult> & {
+    productReasons?: Record<string, string> | Array<{ productId?: string; reason?: string }>;
+  },
   catalog: Product[],
-  questionnaire: SkinQuestionnaireAnswers
+  questionnaire: SkinQuestionnaireAnswers,
+  poweredBy?: string
 ): SkinAnalysisResult {
-  const fallback = demoSkinAnalysis(catalog, questionnaire);
-  const recommendedProductIds = filterValidProductIds(
-    parsed.recommendedProductIds ?? [],
-    catalog
+  const concernIds =
+    parsed.concerns?.length
+      ? parsed.concerns
+      : mapConcernLabelsToIds(questionnaire.concerns).length
+        ? mapConcernLabelsToIds(questionnaire.concerns)
+        : ["dullness", "dehydration"];
+
+  const looseIds = [
+    ...(parsed.recommendedProductIds ?? []),
+    ...Object.keys(
+      parsed.productReasons && !Array.isArray(parsed.productReasons)
+        ? parsed.productReasons
+        : {}
+    ),
+  ];
+  const resolvedLoose = resolveLooseProductIds(looseIds.map(String), catalog);
+  const recommendedProductIds = rankProductsForAnalysis(
+    catalog,
+    concernIds,
+    resolvedLoose
   );
-  const concerns =
-    parsed.concerns?.length ? parsed.concerns : fallback.concerns;
-  const ids =
-    recommendedProductIds.length > 0
-      ? recommendedProductIds.slice(0, 4)
-      : pickProductsForConcerns(
-          catalog,
-          concerns.length ? concerns : mapConcernLabelsToIds(questionnaire.concerns),
-          4
-        );
+
+  let productReasons: Record<string, string> | undefined;
+  if (parsed.productReasons && !Array.isArray(parsed.productReasons)) {
+    productReasons = {};
+    for (const [id, reason] of Object.entries(parsed.productReasons)) {
+      const resolved = resolveLooseProductIds([id], catalog)[0] ?? id;
+      if (filterValidProductIds([resolved], catalog).length && reason?.trim()) {
+        productReasons[resolved] = reason.trim();
+      }
+    }
+  } else if (Array.isArray(parsed.productReasons)) {
+    productReasons = {};
+    for (const row of parsed.productReasons) {
+      if (!row?.productId || !row.reason) continue;
+      const resolved = resolveLooseProductIds([row.productId], catalog)[0];
+      if (resolved) productReasons[resolved] = row.reason.trim();
+    }
+  }
+
+  const summary = parsed.summary?.trim() ?? "";
+  const recommendations = parsed.recommendations?.filter(Boolean) ?? [];
+
+  const skinTypeRaw =
+    parsed.skinType?.trim() ||
+    questionnaire.selfReportedSkinType?.toLowerCase() ||
+    "combination";
+
+  const filledReasons = ensureProductReasons(
+    recommendedProductIds,
+    catalog,
+    concernIds,
+    productReasons
+  );
 
   return {
-    skinType: parsed.skinType?.trim() || fallback.skinType,
-    concerns,
-    summary: parsed.summary?.trim() || fallback.summary,
+    skinType: skinTypeRaw,
+    concerns: concernIds,
+    summary:
+      summary.length >= 80
+        ? summary
+        : `${summary} ${buildProductAnchoredSummary(recommendedProductIds, catalog, questionnaire)}`.trim(),
     recommendations:
-      parsed.recommendations?.filter(Boolean).length
-        ? parsed.recommendations!.filter(Boolean)
-        : fallback.recommendations,
-    recommendedProductIds: ids,
+      recommendations.length >= 3
+        ? recommendations
+        : buildProductAnchoredSteps(recommendedProductIds, catalog, recommendations),
+    recommendedProductIds,
+    productReasons: filledReasons,
+    poweredBy,
+    analysisSource: "ai",
   };
+}
+
+function buildProductAnchoredSummary(
+  ids: string[],
+  catalog: Product[],
+  questionnaire: SkinQuestionnaireAnswers
+): string {
+  const names = ids
+    .map((id) => catalog.find((p) => p.id === id))
+    .filter(Boolean) as Product[];
+  if (names.length === 0) return "";
+  const top = names[0];
+  const second = names[1];
+  const concerns = questionnaire.concerns.join(", ") || "your goals";
+  return `Based on your scan and ${concerns.toLowerCase()}, I would start with ${top.name} (★${top.rating.toFixed(1)}, our top-rated match in catalog)${second ? `, then add ${second.name} for routine support` : ""}. These are in stock on Lorraine Beauté now.`;
+}
+
+function buildProductAnchoredSteps(
+  ids: string[],
+  catalog: Product[],
+  existing: string[]
+): string[] {
+  const products = ids
+    .map((id) => catalog.find((p) => p.id === id))
+    .filter(Boolean) as Product[];
+  const extra = products.slice(0, 3).map((p, i) => {
+    const step =
+      p.category === "suncare"
+        ? "AM"
+        : p.category === "masks"
+          ? "PM treatment"
+          : i === 0
+            ? "After cleanse"
+            : "Moisturise";
+    return `${step}: use ${p.name} — ★${p.rating.toFixed(1)} (${p.reviewCount} reviews).`;
+  });
+  return [...existing, ...extra].slice(0, 6);
 }
 
 export async function runStoreChat(
@@ -314,22 +428,44 @@ ${catalogSummary}`;
   const userPrompt = `QUESTIONNAIRE:\n${context}\n\nTASK: Perform a thorough visual skin assessment from the attached face photo. Match K-beauty products from the catalog to this person's needs.`;
 
   const visionProvider = resolveVisionProvider();
-  try {
-    let raw: string;
-    if (visionProvider === "gateway") {
-      raw = (await gatewayCompleteVisionJson(system, userPrompt, imageDataUrl)).raw;
-    } else if (visionProvider === "openrouter") {
-      raw = await openRouterVisionJson(system, userPrompt, imageDataUrl);
-    } else if (visionProvider === "anthropic") {
-      raw = await anthropicVisionJson(system, userPrompt, imageDataUrl);
-    } else {
-      throw new Error("NO_VISION");
-    }
-    const parsed = parseJson<Partial<SkinAnalysisResult>>(raw);
-    return normalizeSkinResult(parsed, catalog, questionnaire);
-  } catch {
-    return demoSkinAnalysis(catalog, questionnaire);
+  if (visionProvider === "none") {
+    throw new Error("NO_VISION_PROVIDER");
   }
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      let raw: string;
+      let poweredBy: string | undefined;
+      if (visionProvider === "gateway") {
+        const res = await gatewayCompleteVisionJson(system, userPrompt, imageDataUrl);
+        raw = res.raw;
+        poweredBy = res.poweredBy;
+      } else if (visionProvider === "openrouter") {
+        raw = await openRouterVisionJson(system, userPrompt, imageDataUrl);
+        poweredBy = providerLabel("openrouter");
+      } else {
+        raw = await anthropicVisionJson(system, userPrompt, imageDataUrl);
+        poweredBy = providerLabel("anthropic");
+      }
+      const parsed = parseJson<
+        Partial<SkinAnalysisResult> & {
+          productReasons?: Record<string, string>;
+        }
+      >(raw);
+      return normalizeSkinResult(parsed, catalog, questionnaire, poweredBy);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  console.error("Skin vision failed after retry:", lastError);
+  const fallback = demoSkinAnalysis(catalog, questionnaire);
+  return {
+    ...fallback,
+    analysisSource: "fallback",
+    poweredBy: providerLabel(resolveVisionProvider()),
+  };
 }
 
 export function getRecommendedProducts(ids: string[], catalog: Product[]): Product[] {

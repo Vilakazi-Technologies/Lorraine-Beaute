@@ -18,6 +18,7 @@ import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
 import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
 import { ProductCard } from "./product-card";
 import { SkinQuestionnaireForm } from "./skin-questionnaire-form";
+import { SkinAnalysisProductPicks } from "./skin-analysis-product-picks";
 
 type Step = "intro" | "questionnaire" | "camera" | "analyzing" | "results";
 
@@ -470,8 +471,23 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
                     What your {VILATECH_AI} consultant sees and recommends for you:
                   </p>
                   <p className="text-muted-foreground text-sm leading-relaxed">{result.summary}</p>
+                  {result.analysisSource === "fallback" && (
+                    <p className="text-xs text-accent mt-3">
+                      Live vision was temporarily unavailable — picks below use your answers and our
+                      highest-rated catalog matches. Please try again if you need a fresh photo
+                      read.
+                    </p>
+                  )}
+                  {result.poweredBy && (
+                    <p className="text-[10px] text-muted-foreground/70 mt-2">{result.poweredBy}</p>
+                  )}
                 </div>
               </div>
+
+              <SkinAnalysisProductPicks
+                products={recommendedProducts}
+                reasons={result.productReasons}
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
                 <div className="bg-muted/50 border border-border rounded-sm p-5">
@@ -504,16 +520,9 @@ export function SkinAnalysis({ variant = "page", onClose }: SkinAnalysisProps) {
                 </div>
               </div>
 
-              <h3 className="font-serif text-xl sm:text-2xl font-semibold mb-2">
-                Recommended from our catalog
+              <h3 className="font-serif text-xl sm:text-2xl font-semibold mb-6">
+                More from the shop
               </h3>
-              {recommendedProducts.length > 0 && (
-                <p className="text-sm text-muted-foreground mb-6">
-                  Based on your scan, your consultant selected:{" "}
-                  {recommendedProducts.map((p) => p.name).join(" · ")}
-                </p>
-              )}
-              {!recommendedProducts.length && <div className="mb-6" />}
               {recommendedProducts.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-8">
                   {recommendedProducts.map((product, i) => (

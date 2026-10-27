@@ -4,9 +4,79 @@ export function buildCatalogSummary(catalog: Product[]): string {
   return catalog
     .map(
       (p) =>
-        `[${p.id}] ${p.name} (R${p.price}) — ${p.description}. Category: ${p.category}. Concerns: ${p.skinConcerns?.join(", ") || "general"}.`
+        `[${p.id}] ${p.name} — R${p.price} — ★${p.rating.toFixed(1)} (${p.reviewCount} reviews) — ${p.category} — concerns: ${p.skinConcerns?.join(", ") || "general"} — ${p.description.slice(0, 100)}`
     )
     .join("\n");
+}
+
+/** Prefer AI ids, then top-rated catalog matches for concerns. */
+export function rankProductsForAnalysis(
+  catalog: Product[],
+  concernIds: string[],
+  preferredIds: string[]
+): string[] {
+  const validPreferred = filterValidProductIds(preferredIds, catalog);
+  const used = new Set<string>();
+  const ordered: string[] = [];
+
+  for (const id of validPreferred) {
+    if (!used.has(id)) {
+      ordered.push(id);
+      used.add(id);
+    }
+  }
+
+  const pool = catalog
+    .filter((p) => !used.has(p.id))
+    .filter((p) =>
+      concernIds.length === 0
+        ? true
+        : p.skinConcerns?.some((c) => concernIds.includes(c))
+    );
+
+  const byScore = (a: Product, b: Product) => {
+    const score = (p: Product) => p.rating * Math.log10(p.reviewCount + 10);
+    return score(b) - score(a);
+  };
+
+  const ranked = (pool.length > 0 ? pool : catalog.filter((p) => !used.has(p.id)))
+    .sort(byScore);
+
+  for (const p of ranked) {
+    if (ordered.length >= 4) break;
+    if (!used.has(p.id)) {
+      ordered.push(p.id);
+      used.add(p.id);
+    }
+  }
+
+  return ordered.slice(0, 4);
+}
+
+/** Map loose AI output (names, skus) to catalog ids. */
+export function resolveLooseProductIds(raw: string[], catalog: Product[]): string[] {
+  const byId = new Set(catalog.map((p) => p.id));
+  const out: string[] = [];
+
+  for (const token of raw) {
+    const t = token.trim();
+    if (!t) continue;
+    if (byId.has(t)) {
+      out.push(t);
+      continue;
+    }
+    const lower = t.toLowerCase();
+    const match = catalog.find(
+      (p) =>
+        p.name.toLowerCase().includes(lower) ||
+        lower.includes(p.name.toLowerCase().slice(0, 20)) ||
+        p.sku.toLowerCase() === lower ||
+        p.id.toLowerCase() === lower
+    );
+    if (match) out.push(match.id);
+  }
+
+  return [...new Set(out)];
 }
 
 export function filterValidProductIds(ids: string[], catalog: Product[]): string[] {
@@ -25,7 +95,11 @@ export function pickProductsForConcerns(
   );
   const pool = matched.length > 0 ? matched : catalog;
   return pool
-    .sort((a, b) => b.rating - a.rating)
+    .sort(
+      (a, b) =>
+        b.rating * Math.log10(b.reviewCount + 10) -
+        a.rating * Math.log10(a.reviewCount + 10)
+    )
     .slice(0, limit)
     .map((p) => p.id);
 }
