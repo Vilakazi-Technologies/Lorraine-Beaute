@@ -36,6 +36,8 @@ export interface SkinAnalysisResult {
   productReasons?: Record<string, string>;
   poweredBy?: string;
   analysisSource?: "ai" | "fallback";
+  /** Present when live vision failed (for support / demo troubleshooting). */
+  visionError?: string;
 }
 
 export interface StoreChatResult {
@@ -459,12 +461,15 @@ ${catalogSummary}`;
     }
   }
 
-  console.error("Skin vision failed after retry:", lastError);
+  const visionError =
+    lastError instanceof Error ? lastError.message : String(lastError ?? "unknown");
+  console.error("Skin vision failed after retry:", visionError);
   const fallback = demoSkinAnalysis(catalog, questionnaire);
   return {
     ...fallback,
     analysisSource: "fallback",
     poweredBy: providerLabel(resolveVisionProvider()),
+    visionError,
   };
 }
 

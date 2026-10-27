@@ -57,6 +57,10 @@ export async function gatewayCompleteVisionJson(
     cache: "no-store",
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Gateway vision failed");
+  if (!res.ok) {
+    const msg =
+      typeof data.error === "string" ? data.error : `Gateway vision failed (${res.status})`;
+    throw new Error(msg);
+  }
   return { raw: data.raw, poweredBy: data.poweredBy ?? VILATECH_AI_MODEL };
 }
