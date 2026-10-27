@@ -110,15 +110,17 @@ export async function openRouterVisionJson(
 ): Promise<string> {
   const res = await post({
     model: visionModel(),
-    max_tokens: 1400,
-    response_format: { type: "json_object" },
+    max_tokens: 2200,
     messages: [
-      { role: "system", content: system },
+      {
+        role: "system",
+        content: `${system}\n\nReturn ONLY a single JSON object. No markdown fences.`,
+      },
       {
         role: "user",
         content: [
           { type: "text", text: textPrompt },
-          { type: "image_url", image_url: { url: imageDataUrl } },
+          { type: "image_url", image_url: { url: imageDataUrl, detail: "low" } },
         ],
       },
     ],
